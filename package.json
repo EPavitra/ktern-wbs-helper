@@ -1,0 +1,33 @@
+{
+  "name": "ktern-wbs-helper",
+  "version": "0.0.1",
+  "description": "Module contains helper functions for Date, Status and Weightage calculation for Ktern workbook and analytics",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EPavitra/ktern-wbs-helper.git"
+  },
+  "keywords": [
+    "ktern",
+    "workbook",
+    "analytics",
+    "wbs",
+    "helper"
+  ],
+  "author": "Pavitra E",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EPavitra/ktern-wbs-helper/issues"
+  },
+  "homepage": "https://github.com/EPavitra/ktern-wbs-helper#readme",
+  "dependencies": {
+    "moment": "2.22.2",
+    "moment-business-days": "1.1.3",
+    "moment-timezone": "^0.5.31",
+    "moment-weekdaysin": "1.0.1",
+    "underscore": "1.9.1"
+  }
+}
