@@ -2,7 +2,12 @@ const _ = require("underscore");
 const moment = require("moment");
 const dateHelper = require("./date");
 
-formulateStatus = (dbStatus) => {
+/**
+ * Function to return IDs of different status
+ * @param {any} dbStatus current status entries from DB
+ * @returns {any} IDs of different status
+ */
+const formulateStatus = (dbStatus) => {
   //STATUS FORMULATION INITIAL SETUP
   let matchedNewStatus = _.filter(dbStatus, (dt) => {
     return dt.workItem === "Task" && dt.category === "New";
@@ -36,7 +41,12 @@ formulateStatus = (dbStatus) => {
   };
 };
 
-formulateData = (data, type) => {
+/**
+ * Function to return input data which includes level in it
+ * @param {any} data input data against which levels has to be updated
+ * @returns {any} updated input data
+ */
+const formulateData = (data, type) => {
   let idField = "$wbs";
   if (type === "workbook") {
     idField = "orderID";
@@ -48,13 +58,20 @@ formulateData = (data, type) => {
   return data;
 };
 
-formulateDurations = (matchedTask, projectSettings, eventDays, weekOffs) => {
-  if (matchedTask["plannedFrom"] && matchedTask["plannedTo"]) {
-    const plannedFrom = dateHelper.parseDateStr(matchedTask["plannedFrom"]);
-    const plannedTo = dateHelper.parseDateStr(matchedTask["plannedTo"]);
+/**
+ * Function to calculate durations of the task
+ * @param {any} task a task in which durations has to be set
+ * @param {any} projectSettings an array containing project settings
+ * @param {any} eventDays an array which has start dates of the holiday events
+ * @param {any} weekOffs an array which has weekoff details
+ */
+const formulateDurations = (task, projectSettings, eventDays, weekOffs) => {
+  if (task["plannedFrom"] && task["plannedTo"]) {
+    const plannedFrom = dateHelper.parseDateStr(task["plannedFrom"]);
+    const plannedTo = dateHelper.parseDateStr(task["plannedTo"]);
     let duration = plannedTo.diff(plannedFrom, "days");
     let finalDuration = plannedTo.diff(plannedFrom, "days");
-    let nextDate = matchedTask["plannedFrom"];
+    let nextDate = task["plannedFrom"];
     for (let i = 0; i < duration; i++) {
       nextDate = moment(
         new Date(new Date(nextDate).getTime() + 24 * 60 * 60 * 1000)
@@ -66,20 +83,19 @@ formulateDurations = (matchedTask, projectSettings, eventDays, weekOffs) => {
     if (duration >= 0) {
       finalDuration++;
       if (projectSettings[0]["duration"] == "hours")
-        matchedTask.plannedDuration = finalDuration * 8;
+        task.plannedDuration = finalDuration * 8;
       else if (projectSettings[0]["duration"] == "days")
-        matchedTask.plannedDuration = finalDuration;
+        task.plannedDuration = finalDuration;
       else if (projectSettings[0]["duration"] == "months")
-        matchedTask.plannedDuration =
-          Math.round((finalDuration / 30) * 100) / 100;
-    } else matchedTask.plannedDuration = "";
-  } else matchedTask.plannedDuration = "";
-  if (matchedTask["startedOn"] && matchedTask["completedOn"]) {
-    const startedOn = dateHelper.parseDateStr(matchedTask["startedOn"]);
-    const completedOn = dateHelper.parseDateStr(matchedTask["completedOn"]);
+        task.plannedDuration = Math.round((finalDuration / 30) * 100) / 100;
+    } else task.plannedDuration = "";
+  } else task.plannedDuration = "";
+  if (task["startedOn"] && task["completedOn"]) {
+    const startedOn = dateHelper.parseDateStr(task["startedOn"]);
+    const completedOn = dateHelper.parseDateStr(task["completedOn"]);
     var duration = completedOn.diff(startedOn, "days");
     var finalDuration = completedOn.diff(startedOn, "days");
-    var nextDate = matchedTask["startedOn"];
+    var nextDate = task["startedOn"];
     if (nextDate) {
       for (let i = 0; i < duration; i++) {
         nextDate = moment(
@@ -93,16 +109,22 @@ formulateDurations = (matchedTask, projectSettings, eventDays, weekOffs) => {
     if (duration >= 0) {
       finalDuration++;
       if (projectSettings[0]["duration"] == "hours")
-        matchedTask.actualDuration = finalDuration * 8;
+        task.actualDuration = finalDuration * 8;
       else if (projectSettings[0]["duration"] == "days")
-        matchedTask.actualDuration = finalDuration;
+        task.actualDuration = finalDuration;
       if (projectSettings[0]["duration"] == "months")
-        matchedTask.actualDuration =
-          Math.round((finalDuration / 30) * 100) / 100;
-    } else matchedTask.actualDuration = "";
-  } else matchedTask.actualDuration = "";
+        task.actualDuration = Math.round((finalDuration / 30) * 100) / 100;
+    } else task.actualDuration = "";
+  } else task.actualDuration = "";
 };
 
+/**
+ * Function to calculate status, dates and weightage for analytics
+ * @param {any} data input data against which calculations has to be made
+ * @param {any} dbStatus current status entries from DB
+ * @param {number} maxLevel maximum nested level at which calculation has to be done
+ * @returns {any} data with status, date and weightage included
+ */
 module.exports.formulateStatusDatesWeightageForAnalytics = (
   data,
   dbStatus,
@@ -170,6 +192,15 @@ module.exports.formulateStatusDatesWeightageForAnalytics = (
   console.timeEnd("formulate-status-dates-weightage");
   return data;
 };
+
+/**
+ * Function to calculate status, dates and weightage for workbook
+ * @param {any} data data input data against which calculations has to be made
+ * @param {any} dbStatus dbStatus current status entries from DB
+ * @param {any} projectInfo information about the particular project
+ * @param {any} maxLevel maximum nested level at which calculation has to be done
+ * @returns {any} data with status, date and weightage included
+ */
 
 //FORMULATE STATUS, DATE AND WEIGHTAGE FOR GIVEN DATA
 module.exports.formulateStatusDatesWeightageForWorkbook = (
