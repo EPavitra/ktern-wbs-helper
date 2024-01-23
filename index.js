@@ -119,6 +119,29 @@ const formulateDurations = (task, projectSettings, eventDays, weekOffs) => {
 };
 
 /**
+ * Function to calculate status roll up for the tasks
+ * @param {any} status a list of status
+ * @param {any} statusObject object which contains IDs of different status
+ * @returns {string} final status value
+ */
+const formulateStatusRollUp = (status, statusObject) => {
+  //STATUS ROLLUP
+  let statusid = "";
+  const uniqueStatus = [...new Set(status)];
+  if (uniqueStatus.length > 1) {
+    if (
+      uniqueStatus.length === 2 &&
+      uniqueStatus.includes(statusObject.matchedCompletedStatusIDs[0]) &&
+      uniqueStatus.includes(statusObject.matchedApprovedStatusIDs[0])
+    )
+      statusid = statusObject.matchedCompletedStatusIDs[0].toString();
+    else statusid = statusObject.matchedActiveStatusIDs[0].toString();
+  } else if (uniqueStatus.length == 1) statusid = uniqueStatus[0];
+  else statusid = statusObject.matchedNewStatusIDs[0].toString();
+  return statusid;
+};
+
+/**
  * Function to calculate status, dates and weightage for analytics
  * @param {any} data input data against which calculations has to be made
  * @param {any} dbStatus current status entries from DB
@@ -136,10 +159,7 @@ module.exports.formulateStatusDatesWeightageForAnalytics = (
   //STATUS FORMULATION INITIAL SETUP
   let statusObject = formulateStatus(dbStatus);
 
-  //ACTUAL PROJECT METRIC CALCULATION DEPENDENCIES
-  let activepercentage = 20;
   //LOOP STARTS
-  let wbsObjects = {};
   for (let i = maxLevel - 1; i >= 1; i--) {
     let matchedTasks = _.filter(data, (dt) => {
       return dt.level == i;
@@ -166,20 +186,8 @@ module.exports.formulateStatusDatesWeightageForAnalytics = (
           status.push(matchedTasks[j].status[0]["_id"].toString());
         }
       }
-      //STATUS ROLLUP
-      var statusid = "";
-      const uniqueStatus = [...new Set(status)];
-      if (uniqueStatus.length > 1) {
-        if (
-          uniqueStatus.length === 2 &&
-          uniqueStatus.includes(statusObject.matchedCompletedStatusIDs[0]) &&
-          uniqueStatus.includes(statusObject.matchedApprovedStatusIDs[0])
-        )
-          statusid = statusObject.matchedCompletedStatusIDs[0].toString();
-        else statusid = statusObject.matchedActiveStatusIDs[0].toString();
-      } else if (uniqueStatus.length == 1) statusid = uniqueStatus[0];
-      else statusid = statusObject.matchedNewStatusIDs[0].toString();
 
+      var statusid = formulateStatusRollUp(status, statusObject);
       matchedTasks[j]["status"] = _.filter(dbStatus, function (dt) {
         return dt._id.toString() === statusid;
       });
@@ -281,24 +289,10 @@ module.exports.formulateStatusDatesWeightageForWorkbook = (
             actualStorypoint: 0,
           };
 
-        //STATUS ROLLUP
-        const uniqueStatus = [...new Set(matchedWbsObject.status)];
-        if (uniqueStatus.length > 1) {
-          if (
-            uniqueStatus.length === 2 &&
-            uniqueStatus.includes(statusObject.matchedCompletedStatusIDs[0]) &&
-            uniqueStatus.includes(statusObject.matchedApprovedStatusIDs[0])
-          )
-            matchedTasks[j].status =
-              statusObject.matchedCompletedStatusIDs[0].toString();
-          else
-            matchedTasks[j].status =
-              statusObject.matchedActiveStatusIDs[0].toString();
-        } else if (uniqueStatus.length == 1)
-          matchedTasks[j].status = uniqueStatus[0];
-        else
-          matchedTasks[j].status =
-            statusObject.matchedNewStatusIDs[0].toString();
+        matchedTasks[j].status = formulateStatusRollUp(
+          matchedWbsObject.status,
+          statusObject
+        );
         wbsObjects[matchedOrderID]["status"].push(matchedTasks[j].status);
 
         //ACTUAL DATES ROLLUP
