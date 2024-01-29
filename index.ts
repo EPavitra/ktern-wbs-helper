@@ -1,13 +1,13 @@
-const _ = require("underscore");
-const moment = require("moment");
-const dateHelper = require("./date");
+import moment from "moment";
+import * as _ from "underscore";
+import * as dateHelper from "./date";
 
 /**
  * Function to return IDs of different status
  * @param {any} dbStatus current status entries from DB
  * @returns {any} IDs of different status
  */
-const formulateStatus = (dbStatus) => {
+const formulateStatus = (dbStatus: any[]) => {
   //STATUS FORMULATION INITIAL SETUP
   let matchedNewStatus = _.filter(dbStatus, (dt) => {
     return dt.workItem === "Task" && dt.category === "New";
@@ -46,7 +46,7 @@ const formulateStatus = (dbStatus) => {
  * @param {any} data input data against which levels has to be updated
  * @returns {any} updated input data
  */
-const formulateData = (data, type) => {
+const formulateData = (data: any[], type: string) => {
   let idField = "$wbs";
   if (type === "workbook") {
     idField = "orderID";
@@ -65,7 +65,12 @@ const formulateData = (data, type) => {
  * @param {any} eventDays an array which has start dates of the holiday events
  * @param {any} weekOffs an array which has weekoff details
  */
-const formulateDurations = (task, projectSettings, eventDays, weekOffs) => {
+const formulateDurations = (
+  task: any,
+  projectSettings: any[],
+  eventDays: any[],
+  weekOffs: any[]
+) => {
   if (task["plannedFrom"] && task["plannedTo"]) {
     const plannedFrom = dateHelper.parseDateStr(task["plannedFrom"]);
     const plannedTo = dateHelper.parseDateStr(task["plannedTo"]);
@@ -124,7 +129,7 @@ const formulateDurations = (task, projectSettings, eventDays, weekOffs) => {
  * @param {any} statusObject object which contains IDs of different status
  * @returns {string} final status value
  */
-const formulateStatusRollUp = (status, statusObject) => {
+const formulateStatusRollUp = (status: any[], statusObject: any) => {
   //STATUS ROLLUP
   let statusid = "";
   const uniqueStatus = [...new Set(status)];
@@ -148,10 +153,10 @@ const formulateStatusRollUp = (status, statusObject) => {
  * @param {number} maxLevel maximum nested level at which calculation has to be done
  * @returns {any} data with status, date and weightage included
  */
-module.exports.formulateStatusDatesWeightageForAnalytics = (
-  data,
-  dbStatus,
-  maxLevel
+export const formulateStatusDatesWeightageForAnalytics = (
+  data: any[],
+  dbStatus: any[],
+  maxLevel: number
 ) => {
   console.time("formulate-status-dates-weightage");
   data = formulateData(data, "analytics");
@@ -211,11 +216,11 @@ module.exports.formulateStatusDatesWeightageForAnalytics = (
  */
 
 //FORMULATE STATUS, DATE AND WEIGHTAGE FOR GIVEN DATA
-module.exports.formulateStatusDatesWeightageForWorkbook = (
-  data,
-  dbStatus,
-  projectInfo,
-  maxLevel
+export const formulateStatusDatesWeightageForWorkbook = (
+  data: any[],
+  dbStatus: any[],
+  projectInfo: any,
+  maxLevel: number
 ) => {
   console.time("formulate-status-dates-weightage");
   console.log("---------------------------------------------------");
@@ -261,7 +266,7 @@ module.exports.formulateStatusDatesWeightageForWorkbook = (
     }
   }
   //LOOP STARTS
-  let wbsObjects = {};
+  let wbsObjects: any = {};
   for (let i = maxLevel; i >= 3; i--) {
     let matchedTasks = _.filter(data, (dt) => {
       return dt.level == i;
@@ -294,7 +299,7 @@ module.exports.formulateStatusDatesWeightageForWorkbook = (
           statusObject
         );
         wbsObjects[matchedOrderID]["status"].push(matchedTasks[j].status);
-
+        const uniqueStatus = [...new Set(matchedWbsObject.status)];
         //ACTUAL DATES ROLLUP
         if (matchedWbsObject.startedOn.length > 0)
           matchedTasks[j]["startedOn"] = new Date(
