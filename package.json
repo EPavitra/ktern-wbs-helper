@@ -1,6 +1,6 @@
 {
   "name": "ktern-wbs-helper",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "Module contains helper functions for Date, Status and Weightage calculation for Ktern workbook and analytics",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

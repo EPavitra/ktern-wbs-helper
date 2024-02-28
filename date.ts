@@ -6,7 +6,7 @@ export const setZeroHoursInDate = (date: string | number | Date | Moment) => {
   return new Date(new Date(formulatedDateStr).setUTCHours(0, 0, 0, 0));
 };
 
-export const parseDateStr = (date: string) => {
+export const parseDateStr = (date: string | Date) => {
   const dateFormat = "DD/MM/YYYY";
   if (moment(date, dateFormat).format(dateFormat) === date) {
     return moment(date, dateFormat);

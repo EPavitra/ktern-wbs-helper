@@ -2,12 +2,136 @@ import moment from "moment";
 import * as _ from "underscore";
 import * as dateHelper from "./date";
 
+export interface DBStatus {
+  _id: string;
+  workItem: string;
+  status: string;
+  category?: string;
+  mailTrigger?: boolean;
+  color?: string;
+}
+
+export interface InputData {
+  _id: string;
+  inid?: string;
+  itemID?: null;
+  orderID: string;
+  itemLevel?: number;
+  title: string;
+  description?: string;
+  status: string | string[] | DBStatus[];
+  phase?: string;
+  subPhaseID: string;
+  assignedTo: string;
+  createdBy?: string;
+  createdOn: string;
+  refTaskID: string;
+  participants: any[];
+  type: any[];
+  plannedEnvironment: any[];
+  actualEnvironment: any[];
+  acceptanceCriteria?: string;
+  priority?: string;
+  tags: any[];
+  plannedFrom: string | Date;
+  plannedTo: string | Date;
+  startedOn: string | Date;
+  completedOn: string | Date;
+  plannedDuration?: number | string;
+  actualDuration?: string | number;
+  plannedProgress?: number;
+  actualProgress?: number;
+  source?: string;
+  plannedLocation: string;
+  actualLocation: string;
+  plannedEffort: number;
+  actualEffort: number;
+  plannedWeightage: number;
+  actualWeightage: number;
+  plannedStorypoint: number;
+  actualStorypoint: number;
+  activePercentage: string | number;
+  skip?: boolean;
+  savedBy?: string;
+  savedOn?: string;
+  versionID?: string;
+  versionName?: string;
+  taskType?: any[];
+  level?: number;
+  $wbs?: string;
+  id?: string;
+  parent?: string;
+  parentID?: string;
+  progress?: number;
+}
+
+export interface StatusObject {
+  matchedNewStatusIDs: string[];
+  matchedActiveStatusIDs: string[];
+  matchedApprovedStatusIDs: string[];
+  matchedCompletedStatusIDs: string[];
+}
+
+export interface ProjectSettings {
+  _id: string;
+  title: "Project Settings";
+  activateMethodology: boolean;
+  approvals: boolean;
+  subscription: boolean;
+  disableActualDates: boolean;
+  fileManagement: string;
+  dateFormulation: boolean;
+  statusFormulation: boolean;
+  disabledDuration: boolean;
+  duration: string;
+  active: boolean;
+  milestonecalc: string;
+  mapsproperties: Mapsproperties;
+  customermilestonepercentage: boolean;
+  progressmetric: Progressmetric;
+  activepercentage: number;
+  activeTaskProgressMetric?: number;
+}
+
+export interface Mapsproperties {
+  businessTransformation: boolean;
+  versionList: string[];
+}
+
+export interface Progressmetric {
+  effort: boolean;
+  storypoint: boolean;
+  weightage: boolean;
+}
+
+export interface ProjectCalendar {
+  _id: string;
+  version: number;
+  title: "Project Calendar";
+  refID: string;
+  createdBy: string;
+  createdOn: string | Date;
+  projects: string[];
+  calendarName: string;
+  weekends: string[];
+  holidayEvents: HolidayEvent[];
+  active: boolean;
+  lastEditedBy: string;
+  lastEditedOn: string | Date;
+}
+
+export interface HolidayEvent {
+  startDate: string;
+}
+
+type ProjectInfo = ProjectSettings | ProjectCalendar;
+
 /**
  * Function to return IDs of different status
- * @param {any} dbStatus current status entries from DB
- * @returns {any} IDs of different status
+ * @param {DBStatus} dbStatus current status entries from DB
+ * @returns {StatusObject} IDs of different status
  */
-const formulateStatus = (dbStatus: any[]) => {
+const formulateStatus = (dbStatus: DBStatus[]) => {
   //STATUS FORMULATION INITIAL SETUP
   let matchedNewStatus = _.filter(dbStatus, (dt) => {
     return dt.workItem === "Task" && dt.category === "New";
@@ -38,21 +162,22 @@ const formulateStatus = (dbStatus: any[]) => {
     matchedActiveStatusIDs,
     matchedApprovedStatusIDs,
     matchedCompletedStatusIDs,
-  };
+  } as StatusObject;
 };
 
 /**
  * Function to return input data which includes level in it
- * @param {any} data input data against which levels has to be updated
- * @returns {any} updated input data
+ * @param {InputData[]} data input data against which levels has to be updated
+ * @param {string} type defines the type of data
+ * @returns {InputData[]} updated input data
  */
-const formulateData = (data: any[], type: string) => {
-  let idField = "$wbs";
-  if (type === "workbook") {
-    idField = "orderID";
-  }
+const formulateData = (data: InputData[], type: string) => {
   data = data.map((dt) => {
-    dt.level = dt[idField].split(".").length;
+    if (type === "workbook") {
+      dt.level = dt.orderID.split(".").length;
+    } else {
+      dt.level = dt.$wbs?.split(".").length;
+    }
     return dt;
   });
   return data;
@@ -60,16 +185,16 @@ const formulateData = (data: any[], type: string) => {
 
 /**
  * Function to calculate durations of the task
- * @param {any} task a task in which durations has to be set
- * @param {any} projectSettings an array containing project settings
- * @param {any} eventDays an array which has start dates of the holiday events
- * @param {any} weekOffs an array which has weekoff details
+ * @param {InputData} task a task in which durations has to be set
+ * @param {ProjectSettings[]} projectSettings an array containing project settings
+ * @param {string[]} eventDays an array which has start dates of the holiday events
+ * @param {number[]} weekOffs an array which has weekoff details
  */
 const formulateDurations = (
-  task: any,
-  projectSettings: any[],
-  eventDays: any[],
-  weekOffs: any[]
+  task: InputData,
+  projectSettings: ProjectSettings[],
+  eventDays: string[],
+  weekOffs: number[]
 ) => {
   if (task["plannedFrom"] && task["plannedTo"]) {
     const plannedFrom = dateHelper.parseDateStr(task["plannedFrom"]);
@@ -125,11 +250,14 @@ const formulateDurations = (
 
 /**
  * Function to calculate status roll up for the tasks
- * @param {any} status a list of status
- * @param {any} statusObject object which contains IDs of different status
+ * @param {string[]} status a list of status
+ * @param {StatusObject} statusObject object which contains IDs of different status
  * @returns {string} final status value
  */
-const formulateStatusRollUp = (status: any[], statusObject: any) => {
+const formulateStatusRollUp = (
+  status: string[],
+  statusObject: StatusObject
+) => {
   //STATUS ROLLUP
   let statusid = "";
   const uniqueStatus = [...new Set(status)];
@@ -148,14 +276,14 @@ const formulateStatusRollUp = (status: any[], statusObject: any) => {
 
 /**
  * Function to calculate status, dates and weightage for analytics
- * @param {any} data input data against which calculations has to be made
- * @param {any} dbStatus current status entries from DB
+ * @param {InputData[]} data input data against which calculations has to be made
+ * @param {DBStatus[]} dbStatus current status entries from DB
  * @param {number} maxLevel maximum nested level at which calculation has to be done
- * @returns {any} data with status, date and weightage included
+ * @returns {InputData[]} data with status, date and weightage included
  */
 export const formulateStatusDatesWeightageForAnalytics = (
-  data: any[],
-  dbStatus: any[],
+  data: InputData[],
+  dbStatus: DBStatus[],
   maxLevel: number
 ) => {
   console.time("formulate-status-dates-weightage");
@@ -171,14 +299,16 @@ export const formulateStatusDatesWeightageForAnalytics = (
     });
     for (let j = 0; j < matchedTasks.length; j++) {
       var matchedChildTasks = _.filter(data, function (dt) {
-        return matchedTasks[j].id.toString() === dt.parent.toString();
+        return matchedTasks[j].id?.toString() === dt.parent?.toString();
       });
       let status = [];
       var plannedWeightage = 0;
       var actualWeightage = 0;
       for (var k = 0; k < matchedChildTasks.length; k++) {
         if (matchedChildTasks[k]["status"].length > 0)
-          status.push(matchedChildTasks[k]["status"][0]["_id"].toString());
+          status.push(
+            (matchedChildTasks[k]["status"][0] as DBStatus)["_id"].toString()
+          );
         else status.push(statusObject.matchedNewStatusIDs[0].toString());
         plannedWeightage =
           plannedWeightage + matchedChildTasks[k]["plannedWeightage"];
@@ -188,7 +318,9 @@ export const formulateStatusDatesWeightageForAnalytics = (
 
       if (matchedChildTasks.length === 0) {
         if (matchedTasks[j].status.length > 0) {
-          status.push(matchedTasks[j].status[0]["_id"].toString());
+          status.push(
+            (matchedTasks[j].status[0] as DBStatus)["_id"].toString()
+          );
         }
       }
 
@@ -208,18 +340,18 @@ export const formulateStatusDatesWeightageForAnalytics = (
 
 /**
  * Function to calculate status, dates and weightage for workbook
- * @param {any} data data input data against which calculations has to be made
- * @param {any} dbStatus dbStatus current status entries from DB
- * @param {any} projectInfo information about the particular project
- * @param {any} maxLevel maximum nested level at which calculation has to be done
- * @returns {any} data with status, date and weightage included
+ * @param {InputData[]} data data input data against which calculations has to be made
+ * @param {DBStatus[]} dbStatus dbStatus current status entries from DB
+ * @param {ProjectInfo[]} projectInfo information about the particular project
+ * @param {number} maxLevel maximum nested level at which calculation has to be done
+ * @returns {InputData[]} data with status, date and weightage included
  */
 
 //FORMULATE STATUS, DATE AND WEIGHTAGE FOR GIVEN DATA
 export const formulateStatusDatesWeightageForWorkbook = (
-  data: any[],
-  dbStatus: any[],
-  projectInfo: any,
+  data: InputData[],
+  dbStatus: DBStatus[],
+  projectInfo: ProjectInfo[],
   maxLevel: number
 ) => {
   console.time("formulate-status-dates-weightage");
@@ -230,11 +362,11 @@ export const formulateStatusDatesWeightageForWorkbook = (
   let eventDays = [];
   let weekOffs = [];
   let projectCalendar = _.filter(projectInfo, function (dt) {
-    if (dt) return dt.title === "Project Calendar";
-  });
+    return dt?.title === "Project Calendar";
+  }) as ProjectCalendar[];
   let projectSettings = _.filter(projectInfo, function (dt) {
-    if (dt) return dt.title === "Project Settings";
-  });
+    return dt?.title === "Project Settings";
+  }) as ProjectSettings[];
   if (projectCalendar.length > 0) {
     for (var i = 0; i < projectCalendar[0].holidayEvents.length; i++) {
       if (projectCalendar[0].holidayEvents[i].startDate)
@@ -277,251 +409,303 @@ export const formulateStatusDatesWeightageForWorkbook = (
         .split(".")
         .slice(0, -1)
         .join(".");
-      if (matchedTasks[j].orderID in wbsObjects) {
-        const matchedWbsObject = wbsObjects[matchedTasks[j].orderID];
-        if (!(matchedOrderID in wbsObjects))
-          wbsObjects[matchedOrderID] = {
-            status: [],
-            plannedFrom: [],
-            plannedTo: [],
-            startedOn: [],
-            completedOn: [],
-            plannedEffort: 0,
-            actualEffort: 0,
-            plannedWeightage: 0,
-            actualWeightage: 0,
-            plannedStorypoint: 0,
-            actualStorypoint: 0,
-          };
 
-        matchedTasks[j].status = formulateStatusRollUp(
-          matchedWbsObject.status,
-          statusObject
-        );
-        wbsObjects[matchedOrderID]["status"].push(matchedTasks[j].status);
-        const uniqueStatus = [...new Set(matchedWbsObject.status)];
-        //ACTUAL DATES ROLLUP
-        if (matchedWbsObject.startedOn.length > 0)
-          matchedTasks[j]["startedOn"] = new Date(
-            Math.min.apply(null, matchedWbsObject.startedOn)
+      if (matchedTasks[j].refTaskID)
+        matchedTasks[j].parentID = matchedTasks[j].refTaskID.toString();
+      else matchedTasks[j].parentID = matchedTasks[j].subPhaseID.toString();
+
+      const parentID = matchedTasks[j].parentID;
+      if (parentID !== undefined) {
+        if (matchedTasks[j]._id in wbsObjects) {
+          const matchedWbsObject = wbsObjects[matchedTasks[j]._id];
+          if (!(parentID in wbsObjects))
+            wbsObjects[parentID] = {
+              status: [],
+              plannedFrom: [],
+              plannedTo: [],
+              startedOn: [],
+              completedOn: [],
+              plannedEffort: 0,
+              actualEffort: 0,
+              plannedWeightage: 0,
+              actualWeightage: 0,
+              plannedStorypoint: 0,
+              actualStorypoint: 0,
+              activePercentage: 0,
+              childTasks: 1,
+            };
+          else {
+            if (wbsObjects[parentID]["childTasks"]) {
+              wbsObjects[parentID]["childTasks"] += 1;
+            } else {
+              wbsObjects[parentID]["childTasks"] = 1;
+            }
+          }
+
+          matchedTasks[j].status = formulateStatusRollUp(
+            matchedWbsObject.status,
+            statusObject
           );
-        else matchedTasks[j]["startedOn"] = "";
-        if (
-          matchedWbsObject.completedOn.length > 0 &&
-          !uniqueStatus.includes(statusObject.matchedActiveStatusIDs[0]) &&
-          !uniqueStatus.includes(statusObject.matchedNewStatusIDs[0])
-        )
-          matchedTasks[j]["completedOn"] = new Date(
-            Math.max.apply(null, matchedWbsObject.completedOn)
-          );
-        else matchedTasks[j]["completedOn"] = "";
-        if (matchedTasks[j]["startedOn"])
-          wbsObjects[matchedOrderID]["startedOn"].push(
-            matchedTasks[j]["startedOn"]
-          );
-        if (matchedTasks[j]["completedOn"])
-          wbsObjects[matchedOrderID]["completedOn"].push(
-            matchedTasks[j]["completedOn"]
+          wbsObjects[parentID]["status"].push(matchedTasks[j].status);
+
+          const uniqueStatus = [...new Set(matchedWbsObject.status)];
+
+          //ACTUAL DATES ROLLUP
+          if (matchedWbsObject.startedOn.length > 0)
+            matchedTasks[j]["startedOn"] = new Date(
+              Math.min.apply(null, matchedWbsObject.startedOn)
+            );
+          else matchedTasks[j]["startedOn"] = "";
+          if (
+            matchedWbsObject.completedOn.length > 0 &&
+            !uniqueStatus.includes(statusObject.matchedActiveStatusIDs[0]) &&
+            !uniqueStatus.includes(statusObject.matchedNewStatusIDs[0])
+          )
+            matchedTasks[j]["completedOn"] = new Date(
+              Math.max.apply(null, matchedWbsObject.completedOn)
+            );
+          else matchedTasks[j]["completedOn"] = "";
+          if (matchedTasks[j]["startedOn"])
+            wbsObjects[parentID]["startedOn"].push(
+              matchedTasks[j]["startedOn"]
+            );
+          if (matchedTasks[j]["completedOn"])
+            wbsObjects[parentID]["completedOn"].push(
+              matchedTasks[j]["completedOn"]
+            );
+
+          //PLANNED DATES ROLLUP
+          if (matchedWbsObject.plannedFrom.length > 0)
+            matchedTasks[j]["plannedFrom"] = new Date(
+              Math.min.apply(null, matchedWbsObject.plannedFrom)
+            );
+          else matchedTasks[j]["plannedFrom"] = "";
+          if (matchedWbsObject.plannedTo.length > 0)
+            matchedTasks[j]["plannedTo"] = new Date(
+              Math.max.apply(null, matchedWbsObject.plannedTo)
+            );
+          else matchedTasks[j]["plannedTo"] = "";
+          if (matchedTasks[j]["plannedFrom"])
+            wbsObjects[parentID]["plannedFrom"].push(
+              matchedTasks[j]["plannedFrom"]
+            );
+          if (matchedTasks[j]["plannedTo"])
+            wbsObjects[parentID]["plannedTo"].push(
+              matchedTasks[j]["plannedTo"]
+            );
+
+          //PROGRESS METRIC ROLLUP
+          matchedTasks[j]["plannedEffort"] = matchedWbsObject.plannedEffort;
+          matchedTasks[j]["plannedWeightage"] =
+            matchedWbsObject.plannedWeightage;
+          matchedTasks[j]["plannedStorypoint"] =
+            matchedWbsObject.plannedStorypoint;
+          matchedTasks[j]["actualEffort"] = matchedWbsObject.actualEffort;
+          matchedTasks[j]["actualWeightage"] = matchedWbsObject.actualWeightage;
+          matchedTasks[j]["actualStorypoint"] =
+            matchedWbsObject.actualStorypoint;
+          matchedTasks[j]["activePercentage"] = (
+            matchedWbsObject.activePercentage / matchedWbsObject.childTasks
+          ).toFixed(5);
+
+          wbsObjects[parentID]["plannedEffort"] +=
+            matchedTasks[j]["plannedEffort"];
+          wbsObjects[parentID]["plannedWeightage"] +=
+            matchedTasks[j]["plannedWeightage"];
+          wbsObjects[parentID]["plannedStorypoint"] +=
+            matchedTasks[j]["plannedStorypoint"];
+          wbsObjects[parentID]["actualEffort"] +=
+            matchedTasks[j]["actualEffort"];
+          wbsObjects[parentID]["actualWeightage"] +=
+            matchedTasks[j]["actualWeightage"];
+          wbsObjects[parentID]["actualStorypoint"] +=
+            matchedTasks[j]["actualStorypoint"];
+          wbsObjects[parentID]["activePercentage"] += parseFloat(
+            matchedTasks[j]["activePercentage"] as string
           );
 
-        //PLANNED DATES ROLLUP
-        if (matchedWbsObject.plannedFrom.length > 0)
-          matchedTasks[j]["plannedFrom"] = new Date(
-            Math.min.apply(null, matchedWbsObject.plannedFrom)
+          //ACTUAL DURATIONS
+          formulateDurations(
+            matchedTasks[j],
+            projectSettings,
+            eventDays,
+            weekOffs
           );
-        else matchedTasks[j]["plannedFrom"] = "";
-        if (matchedWbsObject.plannedTo.length > 0)
-          matchedTasks[j]["plannedTo"] = new Date(
-            Math.max.apply(null, matchedWbsObject.plannedTo)
-          );
-        else matchedTasks[j]["plannedTo"] = "";
-        if (matchedTasks[j]["plannedFrom"])
-          wbsObjects[matchedOrderID]["plannedFrom"].push(
-            matchedTasks[j]["plannedFrom"]
-          );
-        if (matchedTasks[j]["plannedTo"])
-          wbsObjects[matchedOrderID]["plannedTo"].push(
-            matchedTasks[j]["plannedTo"]
-          );
-
-        //PROGRESS METRIC ROLLUP
-        matchedTasks[j]["plannedEffort"] = matchedWbsObject.plannedEffort;
-        matchedTasks[j]["plannedWeightage"] = matchedWbsObject.plannedWeightage;
-        matchedTasks[j]["plannedStorypoint"] =
-          matchedWbsObject.plannedStorypoint;
-        matchedTasks[j]["actualEffort"] = matchedWbsObject.actualEffort;
-        matchedTasks[j]["actualWeightage"] = matchedWbsObject.actualWeightage;
-        matchedTasks[j]["actualStorypoint"] = matchedWbsObject.actualStorypoint;
-
-        wbsObjects[matchedOrderID]["plannedEffort"] +=
-          matchedTasks[j]["plannedEffort"];
-        wbsObjects[matchedOrderID]["plannedWeightage"] +=
-          matchedTasks[j]["plannedWeightage"];
-        wbsObjects[matchedOrderID]["plannedStorypoint"] +=
-          matchedTasks[j]["plannedStorypoint"];
-        wbsObjects[matchedOrderID]["actualEffort"] +=
-          matchedTasks[j]["actualEffort"];
-        wbsObjects[matchedOrderID]["actualWeightage"] +=
-          matchedTasks[j]["actualWeightage"];
-        wbsObjects[matchedOrderID]["actualStorypoint"] +=
-          matchedTasks[j]["actualStorypoint"];
-
-        //ACTUAL DURATIONS
-        formulateDurations(
-          matchedTasks[j],
-          projectSettings,
-          eventDays,
-          weekOffs
-        );
-      } else {
-        let statusObj;
-        if (matchedTasks[j].status) {
-          statusObj = matchedTasks[j].status.toString();
         } else {
-          statusObj = statusObject.matchedNewStatusIDs[0].toString();
-        }
-        if (matchedTasks[j].plannedFrom)
-          matchedTasks[j]["plannedFrom"] = dateHelper.setZeroHoursInDate(
-            moment(matchedTasks[j]["plannedFrom"], "DD/MM/YYYY")
-          );
-        else matchedTasks[j]["plannedFrom"] = "";
+          let statusObj;
+          if (matchedTasks[j].status) {
+            statusObj = matchedTasks[j].status.toString();
+          } else {
+            statusObj = statusObject.matchedNewStatusIDs[0].toString();
+          }
+          if (matchedTasks[j].plannedFrom)
+            matchedTasks[j]["plannedFrom"] = dateHelper.setZeroHoursInDate(
+              moment(matchedTasks[j]["plannedFrom"], "DD/MM/YYYY")
+            );
+          else matchedTasks[j]["plannedFrom"] = "";
 
-        if (matchedTasks[j].plannedTo)
-          matchedTasks[j]["plannedTo"] = dateHelper.setZeroHoursInDate(
-            moment(matchedTasks[j]["plannedTo"], "DD/MM/YYYY")
-          );
-        else matchedTasks[j]["plannedTo"] = "";
+          if (matchedTasks[j].plannedTo)
+            matchedTasks[j]["plannedTo"] = dateHelper.setZeroHoursInDate(
+              moment(matchedTasks[j]["plannedTo"], "DD/MM/YYYY")
+            );
+          else matchedTasks[j]["plannedTo"] = "";
 
-        if (!(matchedOrderID in wbsObjects)) {
-          wbsObjects[matchedOrderID] = {
-            status: [],
-            plannedFrom: [],
-            plannedTo: [],
-            startedOn: [],
-            completedOn: [],
-            plannedEffort: 0,
-            actualEffort: 0,
-            plannedWeightage: 0,
-            actualWeightage: 0,
-            plannedStorypoint: 0,
-            actualStorypoint: 0,
-          };
-        }
-        //STATUS FORMULATION
-        matchedTasks[j].status = statusObj;
-        wbsObjects[matchedOrderID]["status"].push(statusObj);
+          if (!(parentID in wbsObjects)) {
+            wbsObjects[parentID] = {
+              status: [],
+              plannedFrom: [],
+              plannedTo: [],
+              startedOn: [],
+              completedOn: [],
+              plannedEffort: 0,
+              actualEffort: 0,
+              plannedWeightage: 0,
+              actualWeightage: 0,
+              plannedStorypoint: 0,
+              actualStorypoint: 0,
+              activePercentage: 0,
+              childTasks: 0,
+            };
+          }
+          //STATUS FORMULATION
+          matchedTasks[j].status = statusObj;
+          wbsObjects[parentID]["status"].push(statusObj);
 
-        //ACTUAL DATES CALCULATION AND PROGRESS METRIC
-        if (
-          statusObject.matchedNewStatusIDs.includes(statusObj) ||
-          statusObj == ""
-        ) {
-          matchedTasks[j].startedOn = "";
-          matchedTasks[j].completedOn = "";
-          matchedTasks[j].actualWeightage = 0;
-          matchedTasks[j].actualEffort = 0;
-          matchedTasks[j].actualStorypoint = 0;
-        } else if (statusObject.matchedActiveStatusIDs.includes(statusObj)) {
-          matchedTasks[j].completedOn = "";
-          if (matchedTasks[j].startedOn)
-            matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
-              moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
+          //ACTUAL DATES CALCULATION AND PROGRESS METRIC
+          if (
+            statusObject.matchedNewStatusIDs.includes(statusObj) ||
+            statusObj == ""
+          ) {
+            matchedTasks[j].startedOn = "";
+            matchedTasks[j].completedOn = "";
+            matchedTasks[j].actualWeightage = 0;
+            matchedTasks[j].actualEffort = 0;
+            matchedTasks[j].actualStorypoint = 0;
+            matchedTasks[j].activePercentage = 0;
+          } else if (statusObject.matchedActiveStatusIDs.includes(statusObj)) {
+            matchedTasks[j].completedOn = "";
+            if (matchedTasks[j].startedOn)
+              matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
+                moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
+              );
+            else
+              matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
+                new Date()
+              );
+
+            matchedTasks[j].actualEffort =
+              (matchedTasks[j]["plannedEffort"] *
+                parseFloat(matchedTasks[j]["activePercentage"] as string)) /
+                100 || 0;
+
+            matchedTasks[j].actualWeightage = projectSettings[0]
+              .activeTaskProgressMetric
+              ? (matchedTasks[j]["plannedWeightage"] *
+                  parseFloat(matchedTasks[j]["activePercentage"] as string)) /
+                100
+              : (matchedTasks[j]["plannedWeightage"] * activepercentage) /
+                  100 || 0;
+
+            matchedTasks[j].actualStorypoint = projectSettings[0]
+              .activeTaskProgressMetric
+              ? (matchedTasks[j]["plannedStorypoint"] *
+                  parseFloat(matchedTasks[j]["activePercentage"] as string)) /
+                100
+              : (matchedTasks[j]["plannedStorypoint"] * activepercentage) /
+                  100 || 0;
+          } else if (
+            statusObject.matchedCompletedStatusIDs.includes(statusObj) ||
+            statusObject.matchedApprovedStatusIDs.includes(statusObj)
+          ) {
+            if (matchedTasks[j].startedOn)
+              matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
+                moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
+              );
+            else
+              matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
+                new Date()
+              );
+            if (matchedTasks[j].completedOn)
+              matchedTasks[j].completedOn = dateHelper.setZeroHoursInDate(
+                moment(matchedTasks[j].completedOn, "DD/MM/YYYY")
+              );
+            else
+              matchedTasks[j].completedOn = dateHelper.setZeroHoursInDate(
+                new Date()
+              );
+            matchedTasks[j].actualEffort =
+              matchedTasks[j]["plannedEffort"] || 0;
+            matchedTasks[j].actualWeightage =
+              matchedTasks[j]["plannedWeightage"] || 0;
+            matchedTasks[j].actualStorypoint =
+              matchedTasks[j]["plannedStorypoint"] || 0;
+            matchedTasks[j].activePercentage = 100;
+          } else if (
+            (matchedTasks[j]["startedOn"] &&
+              matchedTasks[j]["startedOn"] !== "") ||
+            (matchedTasks[j]["completedOn"] &&
+              matchedTasks[j]["completedOn"] !== "")
+          ) {
+            if (
+              matchedTasks[j]["startedOn"] &&
+              matchedTasks[j]["startedOn"] !== ""
+            ) {
+              matchedTasks[j]["startedOn"] = dateHelper.setZeroHoursInDate(
+                moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
+              );
+            }
+            if (
+              matchedTasks[j]["completedOn"] &&
+              matchedTasks[j]["completedOn"] !== ""
+            ) {
+              matchedTasks[j]["completedOn"] = dateHelper.setZeroHoursInDate(
+                moment(matchedTasks[j].completedOn, "DD/MM/YYYY")
+              );
+            }
+          }
+          if (matchedTasks[j]["startedOn"])
+            wbsObjects[parentID]["startedOn"].push(
+              matchedTasks[j]["startedOn"]
             );
-          else
-            matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
-              new Date()
+          if (matchedTasks[j]["completedOn"])
+            wbsObjects[parentID]["completedOn"].push(
+              matchedTasks[j]["completedOn"]
             );
-          matchedTasks[j].actualEffort =
-            (matchedTasks[j]["plannedEffort"] * activepercentage) / 100 || 0;
-          matchedTasks[j].actualWeightage =
-            (matchedTasks[j]["plannedWeightage"] * activepercentage) / 100 || 0;
-          matchedTasks[j].actualStorypoint =
-            (matchedTasks[j]["plannedStorypoint"] * activepercentage) / 100 ||
-            0;
-        } else if (
-          statusObject.matchedCompletedStatusIDs.includes(statusObj) ||
-          statusObject.matchedApprovedStatusIDs.includes(statusObj)
-        ) {
-          if (matchedTasks[j].startedOn)
-            matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
-              moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
+          if (matchedTasks[j]["plannedFrom"])
+            wbsObjects[parentID]["plannedFrom"].push(
+              matchedTasks[j]["plannedFrom"]
             );
-          else
-            matchedTasks[j].startedOn = dateHelper.setZeroHoursInDate(
-              new Date()
+          if (matchedTasks[j]["plannedTo"])
+            wbsObjects[parentID]["plannedTo"].push(
+              matchedTasks[j]["plannedTo"]
             );
-          if (matchedTasks[j].completedOn)
-            matchedTasks[j].completedOn = dateHelper.setZeroHoursInDate(
-              moment(matchedTasks[j].completedOn, "DD/MM/YYYY")
-            );
-          else
-            matchedTasks[j].completedOn = dateHelper.setZeroHoursInDate(
-              new Date()
-            );
-          matchedTasks[j].actualEffort = matchedTasks[j]["plannedEffort"] || 0;
-          matchedTasks[j].actualWeightage =
+          wbsObjects[parentID]["plannedEffort"] +=
+            matchedTasks[j]["plannedEffort"] || 0;
+          wbsObjects[parentID]["plannedWeightage"] +=
             matchedTasks[j]["plannedWeightage"] || 0;
-          matchedTasks[j].actualStorypoint =
+          wbsObjects[parentID]["plannedStorypoint"] +=
             matchedTasks[j]["plannedStorypoint"] || 0;
-        } else if (
-          (matchedTasks[j]["startedOn"] &&
-            matchedTasks[j]["startedOn"] !== "") ||
-          (matchedTasks[j]["completedOn"] &&
-            matchedTasks[j]["completedOn"] !== "")
-        ) {
-          if (
-            matchedTasks[j]["startedOn"] &&
-            matchedTasks[j]["startedOn"] !== ""
-          ) {
-            matchedTasks[j]["startedOn"] = dateHelper.setZeroHoursInDate(
-              moment(matchedTasks[j].startedOn, "DD/MM/YYYY")
-            );
-          }
-          if (
-            matchedTasks[j]["completedOn"] &&
-            matchedTasks[j]["completedOn"] !== ""
-          ) {
-            matchedTasks[j]["completedOn"] = dateHelper.setZeroHoursInDate(
-              moment(matchedTasks[j].completedOn, "DD/MM/YYYY")
-            );
-          }
-        }
-        if (matchedTasks[j]["startedOn"])
-          wbsObjects[matchedOrderID]["startedOn"].push(
-            matchedTasks[j]["startedOn"]
-          );
-        if (matchedTasks[j]["completedOn"])
-          wbsObjects[matchedOrderID]["completedOn"].push(
-            matchedTasks[j]["completedOn"]
-          );
-        if (matchedTasks[j]["plannedFrom"])
-          wbsObjects[matchedOrderID]["plannedFrom"].push(
-            matchedTasks[j]["plannedFrom"]
-          );
-        if (matchedTasks[j]["plannedTo"])
-          wbsObjects[matchedOrderID]["plannedTo"].push(
-            matchedTasks[j]["plannedTo"]
-          );
-        wbsObjects[matchedOrderID]["plannedEffort"] +=
-          matchedTasks[j]["plannedEffort"] || 0;
-        wbsObjects[matchedOrderID]["plannedWeightage"] +=
-          matchedTasks[j]["plannedWeightage"] || 0;
-        wbsObjects[matchedOrderID]["plannedStorypoint"] +=
-          matchedTasks[j]["plannedStorypoint"] || 0;
-        wbsObjects[matchedOrderID]["actualEffort"] +=
-          matchedTasks[j]["actualEffort"] || 0;
-        wbsObjects[matchedOrderID]["actualWeightage"] +=
-          matchedTasks[j]["actualWeightage"] || 0;
-        wbsObjects[matchedOrderID]["actualStorypoint"] +=
-          matchedTasks[j]["actualStorypoint"] || 0;
+          wbsObjects[parentID]["actualEffort"] +=
+            matchedTasks[j]["actualEffort"] || 0;
+          wbsObjects[parentID]["actualWeightage"] +=
+            matchedTasks[j]["actualWeightage"] || 0;
+          wbsObjects[parentID]["actualStorypoint"] +=
+            matchedTasks[j]["actualStorypoint"] || 0;
+          wbsObjects[parentID]["childTasks"] += 1;
 
-        //ACTUAL DURATIONS
-        formulateDurations(
-          matchedTasks[j],
-          projectSettings,
-          eventDays,
-          weekOffs
-        );
+          if (matchedTasks[j].activePercentage)
+            wbsObjects[parentID]["activePercentage"] += parseFloat(
+              matchedTasks[j]["activePercentage"] as string
+            );
+
+          //ACTUAL DURATIONS
+          formulateDurations(
+            matchedTasks[j],
+            projectSettings,
+            eventDays,
+            weekOffs
+          );
+        }
       }
     }
   }
