@@ -1,130 +1,154 @@
 import moment from "moment";
 import * as _ from "underscore";
 import * as dateHelper from "./date";
+import { z } from "zod";
 
-export interface DBStatus {
-  _id: string;
-  workItem: string;
-  status: string;
-  category?: string;
-  mailTrigger?: boolean;
-  color?: string;
-}
+const objectId = z.union([z.string(), z.object({})]);
 
-export interface InputData {
-  _id: string;
-  inid?: string;
-  itemID?: null;
-  orderID: string;
-  itemLevel?: number;
-  title: string;
-  description?: string;
-  status: string | string[] | DBStatus[];
-  phase?: string;
-  subPhaseID: string;
-  assignedTo: string;
-  createdBy?: string;
-  createdOn: string;
-  refTaskID: string;
-  participants: any[];
-  type: any[];
-  plannedEnvironment: any[];
-  actualEnvironment: any[];
-  acceptanceCriteria?: string;
-  priority?: string;
-  tags: any[];
-  plannedFrom: string | Date;
-  plannedTo: string | Date;
-  startedOn: string | Date;
-  completedOn: string | Date;
-  plannedDuration?: number | string;
-  actualDuration?: string | number;
-  plannedProgress?: number;
-  actualProgress?: number;
-  source?: string;
-  plannedLocation: string;
-  actualLocation: string;
-  plannedEffort: number;
-  actualEffort: number;
-  plannedWeightage: number;
-  actualWeightage: number;
-  plannedStorypoint: number;
-  actualStorypoint: number;
-  activePercentage: string | number;
-  skip?: boolean;
-  savedBy?: string;
-  savedOn?: string;
-  versionID?: string;
-  versionName?: string;
-  taskType?: any[];
-  level?: number;
-  $wbs?: string;
-  id?: string;
-  parent?: string;
-  parentID?: string;
-  progress?: number;
-}
+const DBStatusSchema = z.object({
+  _id: objectId,
+  workItem: z.string(),
+  status: z.string(),
+  category: z.string().optional(),
+  mailTrigger: z.boolean().optional(),
+  color: z.string().optional(),
+});
 
-export interface StatusObject {
-  matchedNewStatusIDs: string[];
-  matchedActiveStatusIDs: string[];
-  matchedApprovedStatusIDs: string[];
-  matchedCompletedStatusIDs: string[];
-}
+export type DBStatus = z.infer<typeof DBStatusSchema>;
 
-export interface ProjectSettings {
-  _id: string;
-  title: "Project Settings";
-  activateMethodology: boolean;
-  approvals: boolean;
-  subscription: boolean;
-  disableActualDates: boolean;
-  fileManagement: string;
-  dateFormulation: boolean;
-  statusFormulation: boolean;
-  disabledDuration: boolean;
-  duration: string;
-  active: boolean;
-  milestonecalc: string;
-  mapsproperties: Mapsproperties;
-  customermilestonepercentage: boolean;
-  progressmetric: Progressmetric;
-  activepercentage: number;
-  activeTaskProgressMetric?: number;
-}
+const InputDataSchema = z.object({
+  _id: objectId,
+  inid: z.string().optional(),
+  itemID: z.any().optional(),
+  orderID: z.string(),
+  itemLevel: z.number().optional(),
+  title: z.string(),
+  description: z.string().optional(),
+  status: z.union([z.string(), z.array(z.string()), z.array(DBStatusSchema)]),
+  phase: z.string().optional(),
+  subPhaseID: z.string(),
+  assignedTo: z.string(),
+  createdBy: z.string().optional(),
+  createdOn: z.string().optional(),
+  refTaskID: z.string(),
+  participants: z.array(z.any()).optional(),
+  type: z.array(z.any()),
+  plannedEnvironment: z.array(z.any()).optional(),
+  actualEnvironment: z.array(z.any()).optional(),
+  acceptanceCriteria: z.any().optional(),
+  priority: z.string().optional(),
+  tags: z.array(z.any()).optional(),
+  plannedFrom: z.union([z.string(), z.date()]),
+  plannedTo: z.union([z.string(), z.date()]),
+  startedOn: z.union([z.string(), z.date()]),
+  completedOn: z.union([z.string(), z.date()]),
+  plannedDuration: z.union([z.string(), z.number()]).optional(),
+  actualDuration: z.union([z.string(), z.number()]).optional(),
+  plannedProgress: z.number().optional(),
+  actualProgress: z.number().optional(),
+  source: z.string().optional(),
+  plannedLocation: z.string().optional(),
+  actualLocation: z.string().optional(),
+  plannedEffort: z.number(),
+  actualEffort: z.number(),
+  plannedWeightage: z.number(),
+  actualWeightage: z.number(),
+  plannedStorypoint: z.number(),
+  actualStorypoint: z.number(),
+  activePercentage: z.union([z.string(), z.number()]).optional(),
+  skip: z.boolean().optional(),
+  savedBy: z.string().optional(),
+  savedOn: z.string().optional(),
+  versionID: z.string().optional(),
+  versionName: z.string().optional(),
+  taskType: z.array(z.any()).optional(),
+  level: z.number().optional(),
+  $wbs: z.string().optional(),
+  id: z.string().optional(),
+  parent: z.string().optional(),
+  parentID: z.string().optional(),
+  progress: z.number().optional(),
+});
 
-export interface Mapsproperties {
-  businessTransformation: boolean;
-  versionList: string[];
-}
+export type InputData = z.infer<typeof InputDataSchema>;
 
-export interface Progressmetric {
-  effort: boolean;
-  storypoint: boolean;
-  weightage: boolean;
-}
+const StatusObjectSchema = z.object({
+  matchedNewStatusIDs: z.array(z.string()),
+  matchedActiveStatusIDs: z.array(z.string()),
+  matchedApprovedStatusIDs: z.array(z.string()),
+  matchedCompletedStatusIDs: z.array(z.string()),
+});
 
-export interface ProjectCalendar {
-  _id: string;
-  version: number;
-  title: "Project Calendar";
-  refID: string;
-  createdBy: string;
-  createdOn: string | Date;
-  projects: string[];
-  calendarName: string;
-  weekends: string[];
-  holidayEvents: HolidayEvent[];
-  active: boolean;
-  lastEditedBy: string;
-  lastEditedOn: string | Date;
-}
+export type StatusObject = z.infer<typeof StatusObjectSchema>;
 
-export interface HolidayEvent {
-  startDate: string;
-}
+const MapspropertiesSchema = z.object({
+  businessTransformation: z.boolean(),
+  versionList: z.array(z.object({})),
+});
 
-type ProjectInfo = ProjectSettings | ProjectCalendar;
+const ProgressMetricSchema = z.object({
+  effort: z.boolean(),
+  storypoint: z.boolean(),
+  weightage: z.boolean(),
+});
+
+const ProjectSettingsSchema = z.object({
+  _id: objectId,
+  title: z.literal("Project Settings"),
+  activateMethodology: z.boolean(),
+  approvals: z.boolean(),
+  subscription: z.boolean(),
+  disableActualDates: z.boolean(),
+  fileManagement: z.string(),
+  dateFormulation: z.boolean(),
+  statusFormulation: z.boolean(),
+  disabledDuration: z.boolean(),
+  duration: z.string(),
+  active: z.boolean(),
+  milestonecalc: z.string(),
+  mapsproperties: MapspropertiesSchema,
+  customermilestonepercentage: z.boolean(),
+  progressmetric: ProgressMetricSchema,
+  activepercentage: z.number(),
+  activeTaskProgressMetric: z.number().optional(),
+});
+
+export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
+
+export type Mapsproperties = z.infer<typeof MapspropertiesSchema>;
+
+export type Progressmetric = z.infer<typeof ProgressMetricSchema>;
+
+const HolidayEventSchema = z.object({
+  startDate: z.string(),
+});
+
+const ProjectCalendarSchema = z.object({
+  _id: objectId,
+  version: z.number(),
+  title: z.literal("Project Calendar"),
+  refID: objectId,
+  createdBy: objectId,
+  createdOn: z.union([z.string(), z.date()]),
+  projects: z.array(z.object({})),
+  calendarName: z.string(),
+  weekends: z.array(z.string()),
+  holidayEvents: z.array(HolidayEventSchema),
+  active: z.boolean(),
+  lastEditedBy: objectId,
+  lastEditedOn: z.union([z.string(), z.date()]),
+});
+
+export type ProjectCalendar = z.infer<typeof ProjectCalendarSchema>;
+
+export type HolidayEvent = z.infer<typeof HolidayEventSchema>;
+
+const ProjectInfoSchema = z.union([
+  ProjectSettingsSchema,
+  ProjectCalendarSchema,
+]);
+
+export type ProjectInfo = z.infer<typeof ProjectInfoSchema>;
 
 /**
  * Function to return IDs of different status
@@ -175,8 +199,8 @@ const formulateData = (data: InputData[], type: string) => {
   data = data.map((dt) => {
     if (type === "workbook") {
       dt.level = dt.orderID.split(".").length;
-    } else {
-      dt.level = dt.$wbs?.split(".").length;
+    } else if (dt.$wbs) {
+      dt.level = dt.$wbs.split(".").length;
     }
     return dt;
   });
@@ -286,6 +310,9 @@ export const formulateStatusDatesWeightageForAnalytics = (
   dbStatus: DBStatus[],
   maxLevel: number
 ) => {
+  z.array(InputDataSchema).parse(data);
+  z.array(DBStatusSchema).parse(dbStatus);
+  z.number().parse(maxLevel);
   console.time("formulate-status-dates-weightage");
   data = formulateData(data, "analytics");
 
@@ -354,6 +381,13 @@ export const formulateStatusDatesWeightageForWorkbook = (
   projectInfo: ProjectInfo[],
   maxLevel: number
 ) => {
+  z.array(InputDataSchema).parse(data);
+  z.array(DBStatusSchema).parse(dbStatus);
+  projectInfo.forEach((info) => {
+    if (info.title === "Project Calendar") ProjectCalendarSchema.parse(info);
+    else ProjectSettingsSchema.parse(info);
+  });
+  z.number().parse(maxLevel);
   console.time("formulate-status-dates-weightage");
   console.log("---------------------------------------------------");
   maxLevel = maxLevel + 2; //CONSIDERING PHASE AND SUBPHASE THEREFORE +2
@@ -416,8 +450,8 @@ export const formulateStatusDatesWeightageForWorkbook = (
 
       const parentID = matchedTasks[j].parentID;
       if (parentID !== undefined) {
-        if (matchedTasks[j]._id in wbsObjects) {
-          const matchedWbsObject = wbsObjects[matchedTasks[j]._id];
+        if ((matchedTasks[j]._id as string) in wbsObjects) {
+          const matchedWbsObject = wbsObjects[matchedTasks[j]._id as string];
           if (!(parentID in wbsObjects))
             wbsObjects[parentID] = {
               status: [],
